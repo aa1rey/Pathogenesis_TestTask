@@ -31,9 +31,9 @@ bool UWEquipmentSlot::NativeOnDrop(const FGeometry& InGeometry, const FDragDropE
 
 	FInventorySlot slot;
 	InventoryRef->GetItemInfoAtIndex(DDInventory->InventoryIndex, slot);
-	if (!slot.ItemInfo.bCanUse || (int32)slot.ItemInfo.WeaponPriority == 0) return false;
+	if (!slot.ItemInfo.bCanUse || (int32)slot.ItemInfo.WeaponInfo.Priority == 0) return false;
 
-	EWeaponPriority WeaponPriority = slot.ItemInfo.WeaponPriority;
+	EWeaponPriority WeaponPriority = slot.ItemInfo.WeaponInfo.Priority;
 	UE_LOG(LogTemp, Log, TEXT("'%i' != '%i'"), EquipmentIndex + 1, (int32)WeaponPriority);
 	if (EquipmentIndex + 1 != (int32)WeaponPriority) return false;
 

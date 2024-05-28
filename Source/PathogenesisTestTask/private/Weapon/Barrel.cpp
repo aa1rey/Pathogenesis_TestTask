@@ -16,8 +16,7 @@ UBarrel::UBarrel()
 	
 	bCanShoot = true;
 	BurstIterator = 0;
-	InitialAmmoAmount = 0;
-	CurrentAmmoAmount = InitialAmmoAmount;
+	CurrentAmmoAmount = 0;
 	ChargeTime = 0.f;
 	SpecifiedCharges = 0;
 	BulletClass = ABullet::StaticClass();
@@ -36,6 +35,11 @@ UBarrel::UBarrel()
 	BulletTraceDebugType = EDrawDebugTrace::ForDuration;
 }
 
+void UBarrel::BeginPlay()
+{
+	Super::BeginPlay();
+}
+
 void UBarrel::Shoot(bool Trigger)
 {
 	if (Trigger)
@@ -48,6 +52,7 @@ void UBarrel::Shoot(bool Trigger)
 			return;
 		}
 
+		EndCharge();
 		bool bLooped = true;
 		if (FiringType == EFT_SemiAuto) bLooped = false;
 
@@ -57,34 +62,11 @@ void UBarrel::Shoot(bool Trigger)
 	else if (FiringType != EFT_Burst) EndShoot();
 }
 
-void UBarrel::Charge(int32 AmmoAmount, bool bImmediately, float OverrideChargeTime)
-{
-	if (AmmoAmount < 1 || bInfiniteAmmo) return;
-
-	if (bImmediately)
-	{
-		if (CurrentAmmoAmount + AmmoAmount <= MaxAmmoAmount)
-			CurrentAmmoAmount += AmmoAmount;
-		else
-		{
-			float rest = CurrentAmmoAmount + AmmoAmount - MaxAmmoAmount;
-			CurrentAmmoAmount = MaxAmmoAmount;
-			OnChargeCompleted.Broadcast(rest);
-		}
-		bCanShoot = CurrentAmmoAmount > 0;
-	}
-	else
-	{
-		SpecifiedCharges = AmmoAmount + CurrentAmmoAmount;
-		GetWorld()->GetTimerManager().SetTimer(ChargeHandle, this, &UBarrel::SingleCharge, OverrideChargeTime < 0 ? ChargeTime : OverrideChargeTime, true);
-	}
-}
-
 void UBarrel::ShootFired()
 {
 	if (!bInfiniteAmmo)
 	{
-		if (CurrentAmmoAmount > 0) CurrentAmmoAmount--;
+		if (CurrentAmmoAmount > 0) { CurrentAmmoAmount--; OnCurrentAmmoUpdate.Broadcast(CurrentAmmoAmount); }
 		else { bCanShoot = false; EndShoot(); return; }
 	}
 
@@ -137,17 +119,6 @@ void UBarrel::ShootFired()
 		SpawnedBullet->FinishSpawning(GetComponentTransform());
 		OnShootFired.Broadcast(LaunchVelocity);
 	}
-
-	// Update random fire rate in runtime
-	/*float FireRate = UKismetMathLibrary::RandomFloatInRange(FireRateMin, FireRateMax);
-	GetWorld()->GetTimerManager().SetTimer(ShootHandle, this, &UBarrel::ShootFired, FireRate, true);*/
-}
-
-
-void UBarrel::BeginPlay()
-{
-	Super::BeginPlay();
-	CurrentAmmoAmount = InitialAmmoAmount;
 }
 
 void UBarrel::EndShoot()
@@ -158,20 +129,45 @@ void UBarrel::EndShoot()
 	BulletIgnoreActors.Empty();
 }
 
+void UBarrel::Charge(int32 AmmoAmount, bool bImmediately, float OverrideChargeTime)
+{
+	if (AmmoAmount < 1 || bInfiniteAmmo) return;
+
+	if (bImmediately)
+	{
+		if (CurrentAmmoAmount + AmmoAmount <= MaxAmmoAmount)
+			CurrentAmmoAmount += AmmoAmount;
+		else
+		{
+			float rest = CurrentAmmoAmount + AmmoAmount - MaxAmmoAmount;
+			CurrentAmmoAmount = MaxAmmoAmount;
+			OnChargeCompleted.Broadcast(CurrentAmmoAmount, rest);
+		}
+		bCanShoot = CurrentAmmoAmount > 0;
+	}
+	else
+	{
+		SpecifiedCharges = AmmoAmount + CurrentAmmoAmount;
+		GetWorld()->GetTimerManager().SetTimer(ChargeHandle, this, &UBarrel::SingleCharge, OverrideChargeTime < 0 ? ChargeTime : OverrideChargeTime, true);
+	}
+}
+
 void UBarrel::SingleCharge()
 {
 	if (CurrentAmmoAmount < SpecifiedCharges && CurrentAmmoAmount < MaxAmmoAmount)
 	{
 		CurrentAmmoAmount++;
-		OnSingleCharge.Broadcast(CurrentAmmoAmount);
+		OnCurrentAmmoUpdate.Broadcast(CurrentAmmoAmount);
 	}
-	else
-	{
-		int32 rest = SpecifiedCharges - CurrentAmmoAmount;
-		SpecifiedCharges = 0;
-		GetWorld()->GetTimerManager().ClearTimer(ChargeHandle);
-		ChargeHandle.Invalidate();
-		OnChargeCompleted.Broadcast(rest);
-		bCanShoot = CurrentAmmoAmount > 0;
-	}
+	if (CurrentAmmoAmount == SpecifiedCharges || CurrentAmmoAmount == MaxAmmoAmount) EndCharge();
+}
+
+void UBarrel::EndCharge()
+{
+	int32 rest = SpecifiedCharges - CurrentAmmoAmount;
+	if (SpecifiedCharges != 0) OnChargeCompleted.Broadcast(CurrentAmmoAmount, rest);
+	SpecifiedCharges = 0;
+	GetWorld()->GetTimerManager().ClearTimer(ChargeHandle);
+	ChargeHandle.Invalidate();
+	bCanShoot = CurrentAmmoAmount > 0;
 }

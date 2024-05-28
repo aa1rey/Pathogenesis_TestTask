@@ -13,6 +13,14 @@ UInventoryComponent::UInventoryComponent()
 	bIsVisible = false;
 }
 
+bool UInventoryComponent::UpdateSlotAtIndex(int32 Index, const FInventorySlot& Slot)
+{
+	if (!InvSlots.IsValidIndex(Index) || IsEmptyslot(Index)) return false;
+	
+	InvSlots[Index] = Slot;
+	return true;
+}
+
 bool UInventoryComponent::AddItem(UClass* ItemClass, int32& Amount, const FInvItemInfo ItemInfo)
 {
 	if (InvSlots.Num() == 0)
@@ -124,7 +132,7 @@ bool UInventoryComponent::UseItemAtIndex(int32 Index)
 	if (!GetItemInfoAtIndex(Index, slot)) { UE_LOG(LogInventory, Error, TEXT("Error! Can not use item at index, because either index is invalid or Slot is empty!")); return false; }
 	if (!slot.ItemInfo.bCanUse) { UE_LOG(LogInventory, Warning, TEXT("Can not use item, because its bCanUse is false!")); return false; }
 
-	OnItemUse.Broadcast(slot.ItemClass);
+	OnItemUse.Broadcast(slot);
 	if (slot.ItemInfo.bConsumable)
 		RemoveItemAtIndex(Index, 1);
 

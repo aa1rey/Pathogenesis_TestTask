@@ -11,8 +11,8 @@
 DECLARE_LOG_CATEGORY_EXTERN(LogBarrel, Log, All);
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnShootFiredSignature, FVector, Velocity);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnChargeCompletedSignature, int32, RestedAmmo);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnSingleChargeSignature, int32, CurrAmmoAmount);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnChargeCompletedSignature, int32, CurrAmmoAmount, int32, RestedAmmo);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnCurrentAmmoUpdateSugnature, int32, CurrAmmoAmount);
 
 UENUM(BlueprintType)
 enum class EFiringType : uint8
@@ -38,7 +38,7 @@ public:
 	UPROPERTY(BlueprintAssignable) FOnShootFiredSignature OnShootFired;
 
 	// Delegate (Event Dispatcher) that makes a call every single charge
-	UPROPERTY(BlueprintAssignable) FOnSingleChargeSignature OnSingleCharge;
+	UPROPERTY(BlueprintAssignable) FOnCurrentAmmoUpdateSugnature OnCurrentAmmoUpdate;
 
 	// Delegate (Event Dispatcher) that makes a call when charging is completed. Notifies about the remaining number of ammo after recharging
 	UPROPERTY(BlueprintAssignable) FOnChargeCompletedSignature OnChargeCompleted;
@@ -92,13 +92,11 @@ protected:
 
 	// Magazine size
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Barrel|Ammo") int32 MaxAmmoAmount;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Barrel|Ammo") int32 InitialAmmoAmount;
 	
 	// The time required to charge one ammo
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Barrel|Ammo") float ChargeTime;
 
-	int32 CurrentAmmoAmount;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Barrel|Ammo") int32 CurrentAmmoAmount;
 	
 public:	
 	UBarrel();
@@ -109,11 +107,15 @@ public:
 
 	// Returns the current ammo amount
 	UFUNCTION(BlueprintCallable, BlueprintPure) int32 GetCurrentAmmoAmount() { return CurrentAmmoAmount; }
+	UFUNCTION(BlueprintCallable, BlueprintPure) int32 GetMaxAmmoAmount() { return MaxAmmoAmount; }
+
+	void SetMaxAmmoAmount(int32 NewAmount) { MaxAmmoAmount = NewAmount; }
+	void SetCurrentAmmoAmount(int32 NewAmount) { CurrentAmmoAmount = NewAmount; }
 	
 	/* Charge specified AmmoAmount
 	* @param	AmmoAmount - number of ammo to charge
-	* @param	bImmediately - if true, charge without time delay, won't broadcast OnSingleCharge delegate.
-	* Otherwise OnChargeCompleted will make a call, when charge is completed, and OnSingleCharge will make a call every single charge.
+	* @param	bImmediately - if true, charge without time delay, won't broadcast OnCurrentAmmoUpdate delegate.
+	* Otherwise OnChargeCompleted will make a call, when charge is completed, and OnCurrentAmmoUpdate will make a call every single charge.
 	* @param	OverrideChargeTime - the time required to charge one ammo. If lower than 0, won't override ChargeTime defined in class.*/
 	UFUNCTION(BlueprintCallable) void Charge(int32 AmmoAmount, bool bImmediately = true, float OverrideChargeTime = -1.f);
 	void ShootFired();
@@ -121,4 +123,5 @@ protected:
 	virtual void BeginPlay() override;
 	void EndShoot();
 	void SingleCharge();
+	void EndCharge();
 };

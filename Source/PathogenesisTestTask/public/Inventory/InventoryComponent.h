@@ -12,7 +12,7 @@ DECLARE_LOG_CATEGORY_EXTERN(LogInventory, Log, All);
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnSlotUpdatedSignature, int32, ItemIndex);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnInventoryVisibilityUpdateSignature, bool, bVisible);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnItemUseSignature, UClass*, ItemClass);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnItemUseSignature, FInventorySlot, Slot);
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class PATHOGENESISTESTTASK_API UInventoryComponent : public UActorComponent
@@ -34,6 +34,10 @@ public:
 
 	// Toggle inventory visibility and broadcast about it. To subscribe use OnInventoryVisibilityUpdate delegate (Event Dispatcher)
 	void ToggleInventoryVisibility() { bIsVisible = !bIsVisible; OnInventoryVisibilityUpdate.Broadcast(bIsVisible); }
+
+	/*Replace existing Inventory Slot at the given Index with given Slot
+	@return	Return true if given index is valid AND slot exists at this index, otherwise - false*/
+	UFUNCTION(BlueprintCallable) bool UpdateSlotAtIndex(int32 Index, const FInventorySlot& Slot);
 
 	/*Add to InventorySlots array a new item with given:
 		* @param	ItemClass - class of item to store

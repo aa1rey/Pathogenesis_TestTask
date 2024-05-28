@@ -20,3 +20,17 @@ enum class EWeaponPriority : uint8
 	EWP_Primary = 1		UMETA(DisplayName = "Primary"),
 	EWP_Secondary = 2	UMETA(DisplayName = "Secondary"),
 };
+
+USTRUCT(BlueprintType)
+struct FWeaponInfo
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite) EWeaponPriority Priority;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite) EWeaponType Type;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite) int32 MaxAmmo;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite) int32 CurrentAmmo;
+
+	FWeaponInfo() { Priority = EWeaponPriority::EWP_None; Type = EWeaponType::EWT_None; MaxAmmo = 0; CurrentAmmo = 0; }
+	bool operator == (const FWeaponInfo& Info) const { return Priority == Info.Priority && Type == Info.Type; }
+};

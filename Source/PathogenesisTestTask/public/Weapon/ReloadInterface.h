@@ -4,12 +4,11 @@
 
 #include "CoreMinimal.h"
 #include "UObject/Interface.h"
-#include "ItemInfo.h"
-#include "UseInterface.generated.h"
+#include "ReloadInterface.generated.h"
 
 // This class does not need to be modified.
 UINTERFACE(MinimalAPI)
-class UUseInterface : public UInterface
+class UReloadInterface : public UInterface
 {
 	GENERATED_BODY()
 };
@@ -17,12 +16,12 @@ class UUseInterface : public UInterface
 /**
  * 
  */
-class PATHOGENESISTESTTASK_API IUseInterface
+class PATHOGENESISTESTTASK_API IReloadInterface
 {
 	GENERATED_BODY()
 
 	// Add interface functions to this class. This is the class that will be inherited to implement this interface.
 public:
-
-	virtual void Use(class ACharacter* OwnerRef, FInventorySlot Slot) = 0;
+	virtual void Reload() = 0;
+	virtual class UBarrel* GetBarrelComponent() const = 0;
 };

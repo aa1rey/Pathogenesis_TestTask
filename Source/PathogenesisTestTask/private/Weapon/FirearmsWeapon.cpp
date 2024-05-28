@@ -4,6 +4,7 @@
 #include "Weapon/FirearmsWeapon.h"
 #include "Weapon/Barrel.h"
 #include "GameFramework/Character.h"
+#include "Characters/PlayerCharacter.h"
 
 // Sets default values
 AFirearmsWeapon::AFirearmsWeapon()
@@ -29,7 +30,13 @@ AFirearmsWeapon::AFirearmsWeapon()
 void AFirearmsWeapon::BeginPlay()
 {
 	Super::BeginPlay();
-	WeaponType = Type;
+
+	if (BarrelComponent)
+	{
+		BarrelComponent->OnChargeCompleted.AddDynamic(this, &AFirearmsWeapon::OnChargeCompetedEvent);
+		BarrelComponent->OnCurrentAmmoUpdate.AddDynamic(this, &AFirearmsWeapon::OnSingleChargeEvent);
+	}
+	else UE_LOG(LogTemp, Error, TEXT("BarrelComponent is not valid in object: '%s'!"), *GetNameSafe(this));
 }
 
 void AFirearmsWeapon::BeginAttack()
@@ -44,8 +51,29 @@ void AFirearmsWeapon::ReleaseAttack()
 	BarrelComponent->Shoot(false);
 }
 
-void AFirearmsWeapon::Use(ACharacter* OwnerRef)
+void AFirearmsWeapon::Reload()
+{
+	BarrelComponent->Charge(100, false, 1.f);
+}
+
+void AFirearmsWeapon::Use(ACharacter* OwnerRef, FInventorySlot Slot)
 {
 	AttachToComponent(OwnerRef->GetMesh(), FAttachmentTransformRules(EAttachmentRule::SnapToTarget, true), AttachSocketName);
 	OwnerActor = OwnerRef;
+	Info = Slot.ItemInfo.WeaponInfo;
+	Name = Slot.ItemInfo.Name;
+	BarrelComponent->SetMaxAmmoAmount(Slot.ItemInfo.WeaponInfo.MaxAmmo);
+	BarrelComponent->SetCurrentAmmoAmount(Slot.ItemInfo.WeaponInfo.CurrentAmmo);
+}
+
+void AFirearmsWeapon::OnSingleChargeEvent(int32 CurrentAmmoAmount)
+{
+	Info.CurrentAmmo = CurrentAmmoAmount;
+	OnInfoUpdate.Broadcast(Info);
+}
+
+void AFirearmsWeapon::OnChargeCompetedEvent(int32 CurrentAmmoAmount, int32 RestedAmmo)
+{
+	Info.CurrentAmmo = CurrentAmmoAmount;
+	OnInfoUpdate.Broadcast(Info);
 }

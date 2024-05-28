@@ -17,6 +17,8 @@ class UInputAction;
 struct FInputActionValue;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnWeaponSwitchSignature, EWeaponType, WeaponType);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnWeaponSelectSignature, int32, priority, bool, Selected);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnWeaponInfoUpdateSignature, FWeaponInfo, WeaponInfo);
 
 UCLASS()
 class PATHOGENESISTESTTASK_API APlayerCharacter : public ACharacter
@@ -25,6 +27,9 @@ class PATHOGENESISTESTTASK_API APlayerCharacter : public ACharacter
 
 public:
 	UPROPERTY(BlueprintAssignable) FOnWeaponSwitchSignature OnWeaponSwitch;
+	UPROPERTY(BlueprintAssignable) FOnWeaponSelectSignature OnWeaponSelect;
+
+	UPROPERTY(BlueprintAssignable) FOnWeaponInfoUpdateSignature OnWeaponInfoUpdate;
 
 	UObject* InteractedObject;
 	class IAttackInterface* WeaponRef;
@@ -71,6 +76,9 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
 	UInputAction* SelectSecondaryWeaponAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
+	UInputAction* ReloadWeaponAction;
 	// ----------------------------------------------------------------------------------------- //
 public:
 	APlayerCharacter();
@@ -83,7 +91,8 @@ public:
 	
 protected:
 	virtual void BeginPlay() override;
-	UFUNCTION() void OnItemUse(UClass* ItemClass);
+	UFUNCTION() void OnItemUse(FInventorySlot Slot);
+	UFUNCTION() void OnWeaponCurrentAmountUpdateEvent(int32 Amount);
 
 	void Move(const FInputActionValue& Value);
 	void Look(const FInputActionValue& Value);
@@ -94,4 +103,5 @@ protected:
 	void BeginAttack();
 	void ReleaseAttack();
 	void SelectWeapon(int32 Index);
+	void ReloadWeapon();
 };

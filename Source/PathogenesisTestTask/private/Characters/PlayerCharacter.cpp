@@ -11,7 +11,9 @@
 #include "Interaction/InteractionInterface.h"
 #include "Inventory/UseInterface.h"
 #include "Weapon/AttackInterface.h"
+#include "Weapon/ReloadInterface.h"
 #include "Characters/EquipmentComponent.h"
+#include "Weapon/Barrel.h"
 
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
@@ -87,6 +89,9 @@ void APlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
 		//Select Weapon
 		EnhancedInputComponent->BindAction<APlayerCharacter, int32>(SelectPrimaryWeaponAction, ETriggerEvent::Triggered, this, &APlayerCharacter::SelectWeapon, 0);
 		EnhancedInputComponent->BindAction<APlayerCharacter, int32>(SelectSecondaryWeaponAction, ETriggerEvent::Triggered, this, &APlayerCharacter::SelectWeapon, 1);
+
+		// Reload Weapon
+		EnhancedInputComponent->BindAction(ReloadWeaponAction, ETriggerEvent::Completed, this, &APlayerCharacter::ReloadWeapon);
 	}
 	else UE_LOG(LogTemp, Error, TEXT("Error! Can not get Enhanced Input Component in Player Character"));
 	
@@ -113,22 +118,49 @@ void APlayerCharacter::BeginPlay()
 	else UE_LOG(LogInventory, Error, TEXT("Could not create InventoryComponent for object: '%s'"), *GetNameSafe(this));
 }
 
-void APlayerCharacter::OnItemUse(UClass* ItemClass)
+void APlayerCharacter::OnItemUse(FInventorySlot Slot)
 {
 	FActorSpawnParameters SpawnParams;
 	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
-	if (IUseInterface* UsingItem = GetWorld()->SpawnActor<IUseInterface>(ItemClass, GetMesh()->GetComponentTransform(), SpawnParams))
+	if (IUseInterface* UsingItem = GetWorld()->SpawnActor<IUseInterface>(Slot.ItemClass, GetMesh()->GetComponentTransform(), SpawnParams))
 	{
 		if (IAttackInterface* local_WeaponRef = Cast<IAttackInterface>(UsingItem))
 		{
-			if (WeaponRef) Cast<AActor>(WeaponRef)->Destroy();
-			WeaponRef = local_WeaponRef;
-			OnWeaponSwitch.Broadcast(WeaponRef->WeaponType);
-		}
+			// If new weapon implements this interface - Bind event that would be called every time Current Amount Update
+			if (IReloadInterface* new_firearms_weapon = Cast<IReloadInterface>(local_WeaponRef))
+				new_firearms_weapon->GetBarrelComponent()->OnCurrentAmmoUpdate.AddDynamic(this, &APlayerCharacter::OnWeaponCurrentAmountUpdateEvent);
 
-		UsingItem->Use(this);
+			// If equiped weapon exists - destroy it
+			if (WeaponRef)
+			{
+				// If current weapon implements this interface - Unbind Current Amount Update Event
+				if (IReloadInterface* curr_firearms_weapon = Cast<IReloadInterface>(WeaponRef))
+					curr_firearms_weapon->GetBarrelComponent()->OnCurrentAmmoUpdate.RemoveDynamic(this, &APlayerCharacter::OnWeaponCurrentAmountUpdateEvent);
+				
+				// Update old inventory slot weapon info
+				FInventorySlot slot; int32 found_index;
+				if (InventoryComponent->SearchItemByClass(WeaponRef->_getUObject()->GetClass(), slot, found_index))
+				{
+					slot.ItemInfo.WeaponInfo = WeaponRef->GetWeaponInfo();
+					InventoryComponent->UpdateSlotAtIndex(found_index, slot);
+				}
+
+				Cast<AActor>(WeaponRef)->Destroy();
+			}
+
+			// Set new weapon to equiped
+			WeaponRef = local_WeaponRef;
+			OnWeaponSwitch.Broadcast(Slot.ItemInfo.WeaponInfo.Type);
+		}
+		UsingItem->Use(this, Slot);
 	}
+}
+
+void APlayerCharacter::OnWeaponCurrentAmountUpdateEvent(int32 Amount)
+{
+	FWeaponInfo WeaponInfo = Cast<IAttackInterface>(WeaponRef)->GetWeaponInfo();
+	OnWeaponInfoUpdate.Broadcast(WeaponInfo);
 }
 
 void APlayerCharacter::Move(const FInputActionValue& Value)
@@ -213,23 +245,44 @@ void APlayerCharacter::ReleaseAttack()
 
 void APlayerCharacter::SelectWeapon(int32 Index)
 {
+	// Get inventory index from equipment component
 	FInventorySlot slot;
 	int32 found_index = EquipmentComponent->GetContentAtIndex(Index);
+
+	// Get inventory slot info by found index
 	if (InventoryComponent->GetItemInfoAtIndex(found_index, slot))
 	{
 		FString NewName = slot.ItemClass->GetName();
 		if (WeaponRef)
 		{
-			// If weapon exists AND it's the same that incomming, unequip and destroy
-			FString CurrName = WeaponRef->_getUObject()->GetClass()->GetName();
-			if (NewName == CurrName)
+			// Get inventory slot of currently equiped weapon
+			FInventorySlot slot_curr; int32 flound_index_curr;
+			if (InventoryComponent->SearchItemByClass(WeaponRef->_getUObject()->GetClass(), slot_curr, flound_index_curr))
 			{
-				Cast<AActor>(WeaponRef)->Destroy();
-				WeaponRef = nullptr;
-				OnWeaponSwitch.Broadcast(EWeaponType::EWT_None);
-				return;
+				OnWeaponSelect.Broadcast((int32)slot_curr.ItemInfo.WeaponInfo.Priority - 1, false);
+				// If weapon exists AND it's the same that incomming, unequip and destroy
+				FString CurrName = WeaponRef->_getUObject()->GetClass()->GetName();
+				if (NewName == CurrName)
+				{
+					// Update old inventory slot weapon info
+					slot_curr.ItemInfo.WeaponInfo = WeaponRef->GetWeaponInfo();
+					InventoryComponent->UpdateSlotAtIndex(flound_index_curr, slot_curr);
+
+					Cast<AActor>(WeaponRef)->Destroy();
+					WeaponRef = nullptr;
+					OnWeaponSwitch.Broadcast(EWeaponType::EWT_None);
+					return;
+				}
 			}
 		}
+		OnWeaponSelect.Broadcast(Index, true);
 		InventoryComponent->UseItemAtIndex(found_index);
 	}
+}
+
+void APlayerCharacter::ReloadWeapon()
+{
+	if (WeaponRef)
+		if (WeaponRef->_getUObject()->GetClass()->ImplementsInterface(UReloadInterface::StaticClass()))
+			Cast<IReloadInterface>(WeaponRef)->Reload();
 }

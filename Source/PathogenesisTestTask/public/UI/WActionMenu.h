@@ -20,17 +20,11 @@ public:
 
 	UPROPERTY(BlueprintReadWrite, meta = (BindWidget))	UButton* UseButton;
 	UPROPERTY(BlueprintReadWrite, meta = (BindWidget))	UButton* ThrowButton;
-	UPROPERTY(BlueprintReadWrite, meta = (BindWidget))	UButton* FastEquipButton;
 	UPROPERTY(BlueprintReadWrite, meta = (BindWidget))	UButton* CancelButton;
-
-protected:
-	UPROPERTY(EditDefaultsOnly)	TSubclassOf<UUserWidget> FastEquipmentWidgetClass;
 public:
 	void Update(int32 Index);
 
 protected:
 	virtual void NativeConstruct() override;
-
 	UFUNCTION()	void OnActionCancel() { SetVisibility(ESlateVisibility::Hidden); }
-	UFUNCTION()	void OnActionEquipToSlot();
 };

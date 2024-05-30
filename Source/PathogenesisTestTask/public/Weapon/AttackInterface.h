@@ -20,7 +20,7 @@ class PATHOGENESISTESTTASK_API IAttackInterface
 	GENERATED_BODY()
 
 public:
-	virtual FWeaponInfo GetWeaponInfo() = 0;
+	virtual FWeaponInfo GetWeaponInfo() const = 0;
 	virtual void BeginAttack() = 0;
 	virtual void ReleaseAttack() {}
 };

@@ -19,7 +19,7 @@ public:
 	UPROPERTY(BlueprintReadWrite, Category = "Inventory")	class UEquipmentComponent* EquipmentComponentRef;
 
 	int32 InventoryIndex;
-	int32 EquipmentIndex;
+	int32 EquipmentIndex = -1;
 
 protected:
 	UPROPERTY(BlueprintReadWrite, meta = (BindWidget))	class USizeBox* SizeBox;
@@ -31,8 +31,9 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly) float HorizontalSize = 80.f;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly) float VerticalSize = 80.f;
 public:
-	UFUNCTION(BlueprintCallable) void UpdateSlot(int32 Index);
+	UFUNCTION(BlueprintCallable) void UpdateSlot(int32 EquipIndex, int32 InvIndex);
 protected:
 	virtual void NativePreConstruct() override;
 	virtual bool NativeOnDrop(const FGeometry& InGeometry, const FDragDropEvent& InDragDropEvent, UDragDropOperation* InOperation);
+	
 };

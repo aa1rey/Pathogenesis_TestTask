@@ -110,11 +110,21 @@ bool UInventoryComponent::RemoveItemAtIndex(int32 Index, int32 Amount)
 	{
 		InvSlots[Index].ItemClass = nullptr;
 		InvSlots[Index].ItemInfo.Icon = nullptr;
+		OnSlotBecomeEmpty.Broadcast(Index);
 	}
 	InvSlots[Index].Amount -= Amount;
 	OnSlotUpdated.Broadcast(Index);
 
 	return true;
+}
+
+int32 UInventoryComponent::GetTotalItemAmount(UClass* ItemClass)
+{
+	int32 amount = 0;
+	for (int32 i = 0; i < InvSlots.Num(); i++)
+		if (InvSlots[i].ItemClass == ItemClass) amount++;
+
+	return amount;
 }
 
 bool UInventoryComponent::SearchItemByClass(const UClass* TargetClass, FInventorySlot& slot, int32& Index)

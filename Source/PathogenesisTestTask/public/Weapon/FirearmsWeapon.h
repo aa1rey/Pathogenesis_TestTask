@@ -6,6 +6,7 @@
 #include "GameFramework/Actor.h"
 #include "AttackInterface.h"
 #include "ReloadInterface.h"
+#include "Inventory/ItemInfo.h"
 #include "Inventory/UseInterface.h"
 #include "FirearmsWeapon.generated.h"
 
@@ -36,6 +37,11 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Attachment") FName AttachSocketName;
 	UPROPERTY(EditDefaultsOnly, Category = "Weapon Info") FWeaponInfo Info;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Sounds") USoundBase* ShootSound;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Sounds") USoundBase* ReloadSound;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Sounds") USoundBase* OutOfAmmoSound;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Sounds") USoundAttenuation* SoundAttenuation;
 	FText Name;
 
 public:	
@@ -45,10 +51,12 @@ protected:
 	virtual void BeginPlay() override;
 	virtual void BeginAttack() override;
 	virtual void ReleaseAttack() override;
-	virtual FWeaponInfo GetWeaponInfo() override { return Info; }
-	virtual void Reload() override;
-	virtual void Use(class ACharacter* OwnerRef, FInventorySlot Slot) override;
+	virtual FWeaponInfo GetWeaponInfo() const override { return Info; }
+	virtual void Reload(int32 ReloadAmmoAmount) override;
+	virtual void Use_Implementation(class ACharacter* OwnerRef, FInventorySlot Slot) override;
 
 	UFUNCTION() void OnSingleChargeEvent(int32 CurrentAmmoAmount);
 	UFUNCTION() void OnChargeCompetedEvent(int32 CurrentAmmoAmount, int32 RestedAmmo);
+	UFUNCTION() void OnShootFired(FVector Velocity);
+	UFUNCTION() void OnOutOfAmmo();
 };

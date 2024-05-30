@@ -13,6 +13,7 @@ DECLARE_LOG_CATEGORY_EXTERN(LogInventory, Log, All);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnSlotUpdatedSignature, int32, ItemIndex);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnInventoryVisibilityUpdateSignature, bool, bVisible);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnItemUseSignature, FInventorySlot, Slot);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnSlotBecomeEmptySignature, int32, Index);
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class PATHOGENESISTESTTASK_API UInventoryComponent : public UActorComponent
@@ -28,6 +29,7 @@ public:
 	UPROPERTY(BlueprintAssignable)	FOnSlotUpdatedSignature OnSlotUpdated;
 	UPROPERTY(BlueprintAssignable)	FOnInventoryVisibilityUpdateSignature OnInventoryVisibilityUpdate;
 	UPROPERTY(BlueprintAssignable)	FOnItemUseSignature OnItemUse;
+	UPROPERTY(BlueprintAssignable)	FOnSlotBecomeEmptySignature OnSlotBecomeEmpty;
 
 public:	
 	UInventoryComponent();
@@ -70,6 +72,9 @@ public:
 
 		return true;
 	}
+
+	// Returns the number of times the ItemClass has been encounteredin the Inventory
+	int32 GetTotalItemAmount(UClass* ItemClass);
 
 	// @return If slot at the given index is empty - return true, otherwise - false
 	UFUNCTION(BlueprintCallable) bool IsEmptyslot(int32 Index) { return InvSlots[Index].ItemClass == nullptr; }

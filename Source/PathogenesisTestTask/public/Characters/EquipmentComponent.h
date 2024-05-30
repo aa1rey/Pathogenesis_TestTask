@@ -43,6 +43,8 @@ public:
 
 	int32 GetContentAtIndex(int32 Index) { return Slots[Index]; }
 
+	UFUNCTION() void OnInventorySlotBecomeEmpty(int32 Index) { RemoveSlotAtIndex(FindEquipmentIndex(Index)); }
+
 protected:
 	virtual void BeginPlay() override;
 	bool IsArrayFool() { return FindEquipmentIndex(-1) == -1; }

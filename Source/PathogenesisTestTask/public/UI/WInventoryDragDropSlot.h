@@ -14,7 +14,7 @@ class PATHOGENESISTESTTASK_API UWInventoryDragDropSlot : public UUserWidget
 	GENERATED_BODY()
 	
 public:
-	UPROPERTY(BlueprintReadWrite, Category = "Inventory") UInventoryComponent* InventoryRef;
+	UPROPERTY(BlueprintReadWrite, Category = "OpenInventory") UInventoryComponent* InventoryRef;
 	int32 SlotIndex;
 protected:
 	UPROPERTY(BlueprintReadWrite, meta = (BindWidget))	class UImage* ItemIcon;

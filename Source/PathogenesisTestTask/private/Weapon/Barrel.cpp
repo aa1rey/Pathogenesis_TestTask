@@ -3,6 +3,7 @@
 
 #include "Weapon/Barrel.h"
 #include "Weapon/Bullet.h"
+
 #include "Kismet/KismetMathLibrary.h"
 #include "Kismet/GameplayStatics.h"
 
@@ -67,7 +68,7 @@ void UBarrel::ShootFired()
 	if (!bInfiniteAmmo)
 	{
 		if (CurrentAmmoAmount > 0) { CurrentAmmoAmount--; OnCurrentAmmoUpdate.Broadcast(CurrentAmmoAmount); }
-		else { bCanShoot = false; EndShoot(); return; }
+		else { bCanShoot = false; EndShoot(); OnOutOfAmmo.Broadcast(); return; }
 	}
 
 	if (FiringType == EFT_Burst || FiringType == EFT_InterruptedBurst)
@@ -91,6 +92,8 @@ void UBarrel::ShootFired()
 		OnShootFired.AddDynamic(SpawnedBullet, &ABullet::LaunchBullet);
 		SpawnedBullet->InitialLifeSpan = BulletLifeTime;
 		FVector LaunchVelocity = UKismetMathLibrary::GetForwardVector(GetComponentRotation()) * UKismetMathLibrary::RandomFloatInRange(MuzzleVelocityMin, MuzzleVelocityMax);
+		
+		if (OverrideBulletDamage > 0.f) SpawnedBullet->SetBulletDamage(OverrideBulletDamage);
 		BulletIgnoreActors.Add(SpawnedBullet);
 
 		if (BulletTraceDebugType != EDrawDebugTrace::None)
@@ -116,6 +119,8 @@ void UBarrel::ShootFired()
 			FPredictProjectilePathResult PredictResult;
 			UGameplayStatics::PredictProjectilePath(GetWorld(), Params, PredictResult);
 		}
+
+		SpawnedBullet->DamageCauser = DamageCauser;
 		SpawnedBullet->FinishSpawning(GetComponentTransform());
 		OnShootFired.Broadcast(LaunchVelocity);
 	}
@@ -136,12 +141,17 @@ void UBarrel::Charge(int32 AmmoAmount, bool bImmediately, float OverrideChargeTi
 	if (bImmediately)
 	{
 		if (CurrentAmmoAmount + AmmoAmount <= MaxAmmoAmount)
+		{
 			CurrentAmmoAmount += AmmoAmount;
+			OnCurrentAmmoUpdate.Broadcast(CurrentAmmoAmount);
+			OnChargeCompleted.Broadcast(CurrentAmmoAmount, 0);
+		}
 		else
 		{
 			float rest = CurrentAmmoAmount + AmmoAmount - MaxAmmoAmount;
 			CurrentAmmoAmount = MaxAmmoAmount;
 			OnChargeCompleted.Broadcast(CurrentAmmoAmount, rest);
+			OnCurrentAmmoUpdate.Broadcast(CurrentAmmoAmount);
 		}
 		bCanShoot = CurrentAmmoAmount > 0;
 	}

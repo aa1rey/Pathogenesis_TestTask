@@ -11,7 +11,7 @@ void UWInventoryDragDropSlot::Update(int32 Index, UInventoryComponent* Inventory
 	InventoryRef = Inventory;
 	SlotIndex = Index;
 
-	FInventorySlot slot;
-	if (!InventoryRef->GetItemInfoAtIndex(SlotIndex, slot)) return;
-	ItemIcon->SetBrushFromTexture(slot.ItemInfo.Icon);
+	FInventorySlot InvSlot;
+	if (!InventoryRef->GetItemInfoAtIndex(SlotIndex, InvSlot)) return;
+	ItemIcon->SetBrushFromTexture(InvSlot.ItemInfo.Icon);
 }

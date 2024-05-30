@@ -4,7 +4,6 @@
 
 #include "CoreMinimal.h"
 #include "UObject/Interface.h"
-#include "ItemInfo.h"
 #include "UseInterface.generated.h"
 
 // This class does not need to be modified.
@@ -24,5 +23,7 @@ class PATHOGENESISTESTTASK_API IUseInterface
 	// Add interface functions to this class. This is the class that will be inherited to implement this interface.
 public:
 
-	virtual void Use(class ACharacter* OwnerRef, FInventorySlot Slot) = 0;
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Use|From Use Interface") void Use(class ACharacter* OwnerRef, FInventorySlot Slot);
+	
+	virtual void Use_Implementation(class ACharacter* OwnerRef, FInventorySlot Slot) = 0;
 };

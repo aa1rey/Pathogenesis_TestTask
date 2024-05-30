@@ -28,10 +28,11 @@ void UWEquipment::GenerateSlots()
 	for (int32 i = 0; i < EquipmentComponentRef->MaxAmount; i++)
 	{
 		UWEquipmentSlot* NewWidget = CreateWidget<UWEquipmentSlot>(this, EquipmentSlotWidgetClass);
+		EquipmentComponentRef->OnSlotUpdate.AddDynamic(NewWidget, &UWEquipmentSlot::UpdateSlot);
 		NewWidget->InventoryRef = InventoryComponentRef;
 		NewWidget->EquipmentComponentRef = EquipmentComponentRef;
 		NewWidget->EquipmentIndex = i;
-		NewWidget->UpdateSlot(-1);
+		NewWidget->UpdateSlot(i, -1);
 		NewWidget->SetPadding(FMargin(10.f, 0.f));
 		WeaponPanel->AddChild(NewWidget);
 	}

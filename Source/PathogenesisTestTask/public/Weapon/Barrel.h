@@ -13,6 +13,7 @@ DECLARE_LOG_CATEGORY_EXTERN(LogBarrel, Log, All);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnShootFiredSignature, FVector, Velocity);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnChargeCompletedSignature, int32, CurrAmmoAmount, int32, RestedAmmo);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnCurrentAmmoUpdateSugnature, int32, CurrAmmoAmount);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnOutOfAmmoSignature);
 
 UENUM(BlueprintType)
 enum class EFiringType : uint8
@@ -43,8 +44,13 @@ public:
 	// Delegate (Event Dispatcher) that makes a call when charging is completed. Notifies about the remaining number of ammo after recharging
 	UPROPERTY(BlueprintAssignable) FOnChargeCompletedSignature OnChargeCompleted;
 
+	// Delegate (Event Dispatcher) that makes a call when trying to shoot with zero Ammo amount
+	UPROPERTY(BlueprintAssignable) FOnOutOfAmmoSignature OnOutOfAmmo;
+
 	// Actors which wil be ignored when firing
 	UPROPERTY(BlueprintReadWrite, Category = "Barrel|Bullet|Debug") TArray<AActor*> BulletIgnoreActors;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Barrel|Ammo") bool bInfiniteAmmo;
+	AActor* DamageCauser;
 protected:
 	// Class of bullet that will be fired. Use class inherited from Bullet
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Barrel|Bullet") TSubclassOf<class ABullet> BulletClass;
@@ -68,6 +74,8 @@ protected:
 	// Maximal time (in seconds) at which the shot will be fired
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Barrel") float FireRateMax;
 
+	// Overrides a bullet damage. If is equel to 0, damage won't be overrided
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Barrel|Bullet") float OverrideBulletDamage;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Barrel|Bullet|Debug") bool bTraceBulletWithCollision;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Barrel|Bullet|Debug") bool bTraceBulletWithChannel;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Barrel|Bullet|Debug") bool bTraceBulletWithObjectTypes;
@@ -87,8 +95,6 @@ protected:
 	FTimerHandle ShootHandle, ChargeHandle;
 	int32 BurstIterator, SpecifiedCharges;
 	bool bCanShoot;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Barrel|Ammo") bool bInfiniteAmmo;
 
 	// Magazine size
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Barrel|Ammo") int32 MaxAmmoAmount;

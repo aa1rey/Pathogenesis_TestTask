@@ -5,6 +5,7 @@
 #include "Weapon/Barrel.h"
 #include "GameFramework/Character.h"
 #include "Characters/PlayerCharacter.h"
+#include "Kismet/GameplayStatics.h"
 
 // Sets default values
 AFirearmsWeapon::AFirearmsWeapon()
@@ -35,6 +36,8 @@ void AFirearmsWeapon::BeginPlay()
 	{
 		BarrelComponent->OnChargeCompleted.AddDynamic(this, &AFirearmsWeapon::OnChargeCompetedEvent);
 		BarrelComponent->OnCurrentAmmoUpdate.AddDynamic(this, &AFirearmsWeapon::OnSingleChargeEvent);
+		BarrelComponent->OnShootFired.AddDynamic(this, &AFirearmsWeapon::OnShootFired);
+		BarrelComponent->OnOutOfAmmo.AddDynamic(this, &AFirearmsWeapon::OnOutOfAmmo);
 	}
 	else UE_LOG(LogTemp, Error, TEXT("BarrelComponent is not valid in object: '%s'!"), *GetNameSafe(this));
 }
@@ -43,7 +46,7 @@ void AFirearmsWeapon::BeginAttack()
 {
 	BarrelComponent->Shoot(true);
 	BarrelComponent->BulletIgnoreActors.Add(this);
-	BarrelComponent->BulletIgnoreActors.Add(OwnerActor);
+	if (OwnerActor) BarrelComponent->BulletIgnoreActors.Add(OwnerActor);
 }
 
 void AFirearmsWeapon::ReleaseAttack()
@@ -51,19 +54,24 @@ void AFirearmsWeapon::ReleaseAttack()
 	BarrelComponent->Shoot(false);
 }
 
-void AFirearmsWeapon::Reload()
+void AFirearmsWeapon::Reload(int32 ReloadAmmoAmount)
 {
-	BarrelComponent->Charge(100, false, 1.f);
+	BarrelComponent->Charge(ReloadAmmoAmount);
 }
 
-void AFirearmsWeapon::Use(ACharacter* OwnerRef, FInventorySlot Slot)
+void AFirearmsWeapon::Use_Implementation(ACharacter* OwnerRef, FInventorySlot Slot)
 {
-	AttachToComponent(OwnerRef->GetMesh(), FAttachmentTransformRules(EAttachmentRule::SnapToTarget, true), AttachSocketName);
+	AttachToComponent(OwnerRef->FindComponentByTag<USceneComponent>("WeaponAttachment"), FAttachmentTransformRules(EAttachmentRule::SnapToTarget, true));
+	
+	//AttachToComponent(OwnerRef->GetMesh(), FAttachmentTransformRules(EAttachmentRule::SnapToTarget, true), AttachSocketName);
 	OwnerActor = OwnerRef;
+	BarrelComponent->DamageCauser = OwnerActor;
+
 	Info = Slot.ItemInfo.WeaponInfo;
 	Name = Slot.ItemInfo.Name;
-	BarrelComponent->SetMaxAmmoAmount(Slot.ItemInfo.WeaponInfo.MaxAmmo);
-	BarrelComponent->SetCurrentAmmoAmount(Slot.ItemInfo.WeaponInfo.CurrentAmmo);
+
+	BarrelComponent->SetMaxAmmoAmount(Info.MaxAmmo);
+	BarrelComponent->SetCurrentAmmoAmount(Info.CurrentAmmo);
 }
 
 void AFirearmsWeapon::OnSingleChargeEvent(int32 CurrentAmmoAmount)
@@ -74,6 +82,17 @@ void AFirearmsWeapon::OnSingleChargeEvent(int32 CurrentAmmoAmount)
 
 void AFirearmsWeapon::OnChargeCompetedEvent(int32 CurrentAmmoAmount, int32 RestedAmmo)
 {
+	UGameplayStatics::PlaySoundAtLocation(GetWorld(), ReloadSound, BarrelComponent->GetComponentLocation(), 1.f, 1.f, 0.f, SoundAttenuation);
 	Info.CurrentAmmo = CurrentAmmoAmount;
 	OnInfoUpdate.Broadcast(Info);
+}
+
+void AFirearmsWeapon::OnShootFired(FVector Velocity)
+{
+	UGameplayStatics::PlaySoundAtLocation(GetWorld(), ShootSound, BarrelComponent->GetComponentLocation(), 1.f, 1.f, 0.f, SoundAttenuation);
+}
+
+void AFirearmsWeapon::OnOutOfAmmo()
+{
+	UGameplayStatics::PlaySoundAtLocation(GetWorld(), OutOfAmmoSound, BarrelComponent->GetComponentLocation(), 1.f, 1.f, 0.f, SoundAttenuation);
 }

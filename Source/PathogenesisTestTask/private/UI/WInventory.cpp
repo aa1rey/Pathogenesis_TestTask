@@ -27,13 +27,15 @@ void UWInventory::NativeConstruct()
 	APlayerCharacter* player = Cast<APlayerCharacter>(UGameplayStatics::GetPlayerCharacter(GetWorld(), 0));
 	if (!player) return;
 	InventoryRef = player->GetInventory();
-	// OnItemThrow.BindUObject(player, &APlayerCharacter::OnItemThrow);
-	InventoryRef->OnSlotUpdated.AddDynamic(this, &ThisClass::UpdateSlotAtIndex);
-	InventoryRef->OnInventoryVisibilityUpdate.AddDynamic(this, &ThisClass::OnInventoryVisibilityUpdate);
-	GenerateInventorySlots();
-
-	ActionMenu->UseButton->OnClicked.AddDynamic(this, &ThisClass::OnActionUse);
-	ActionMenu->ThrowButton->OnClicked.AddDynamic(this, &ThisClass::OnActionThrow);
+	if (InventoryRef)
+	{
+		OnItemThrow.BindUObject(player, &APlayerCharacter::OnItemThrow);
+		InventoryRef->OnSlotUpdated.AddDynamic(this, &UWInventory::UpdateSlotAtIndex);
+		InventoryRef->OnInventoryVisibilityUpdate.AddDynamic(this, &ThisClass::OnInventoryVisibilityUpdate);
+		GenerateInventorySlots();
+		ActionMenu->UseButton->OnClicked.AddDynamic(this, &ThisClass::OnActionUse);
+		ActionMenu->ThrowButton->OnClicked.AddDynamic(this, &ThisClass::OnActionThrow);
+	}
 }
 
 void UWInventory::OnInventoryVisibilityUpdate(bool Visible)
@@ -49,7 +51,7 @@ void UWInventory::OnActionUse()
 
 void UWInventory::OnActionThrow()
 {
-	if (!InventoryRef->RemoveItemAtIndex(ActionMenu->SlotIndex)) return;
+	//if (!InventoryRef->RemoveItemAtIndex(ActionMenu->SlotIndex)) return;
 	OnItemThrow.Execute(ActionMenu->SlotIndex);
 	ActionMenu->SetVisibility(Hidden);
 }
@@ -108,9 +110,8 @@ void UWInventory::ShowActionMenu(int32 Index)
 	Translation.Y = UWidgetLayoutLibrary::SlotAsUniformGridSlot(WSlot)->GetRow() * (WSlot->VerticalSize + GridSlotPadding);
 	ActionMenu->SetRenderTranslation(Translation);
 
-	FInventorySlot slot;
-	if (InventoryRef->GetItemInfoAtIndex(Index, slot))
-		ActionMenu->ItemInfo = slot.ItemInfo;
+	FInventorySlot InvSlot;
+	if (InventoryRef->GetItemInfoAtIndex(Index, InvSlot)) ActionMenu->ItemInfo = InvSlot.ItemInfo;
 
 	ActionMenu->Update(WSlot->SlotIndex);
 	ActionMenu->SetVisibility(SelfHitTestInvisible);

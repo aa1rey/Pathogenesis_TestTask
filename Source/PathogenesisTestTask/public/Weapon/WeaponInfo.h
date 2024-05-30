@@ -30,7 +30,9 @@ struct FWeaponInfo
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite) EWeaponType Type;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite) int32 MaxAmmo;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite) int32 CurrentAmmo;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite) UClass* AmmoClass;
 
 	FWeaponInfo() { Priority = EWeaponPriority::EWP_None; Type = EWeaponType::EWT_None; MaxAmmo = 0; CurrentAmmo = 0; }
-	bool operator == (const FWeaponInfo& Info) const { return Priority == Info.Priority && Type == Info.Type; }
+
+	bool operator == (const FWeaponInfo& Info) const { return Priority == Info.Priority && Type == Info.Type && AmmoClass == Info.AmmoClass; }
 };

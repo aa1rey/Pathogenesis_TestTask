@@ -30,6 +30,7 @@ struct FInvItemInfo
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly) FWeaponInfo WeaponInfo;
 
 	FInvItemInfo() { Icon = nullptr; bCanUse = false; bCanStack = false; bConsumable = false; MaxStackSize = 1; ItemType = EItemType::EIT_Default; }
+
 	bool operator == (const FInvItemInfo& Info) const
 	{
 		return Icon == Info.Icon

@@ -18,16 +18,17 @@ public:
 	UPROPERTY(BlueprintAssignable) FOnReadyToInteractSignature OnReadyToInteract;
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Actor Components") UStaticMeshComponent* MeshComponent;
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Actor Components") class UWidgetComponent* InteractiveLabel;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Actor Components") class USphereComponent* OverlapColider;
 
-	UPROPERTY(EditDefaultsOnly) UMaterialInstance* OverlayMaterial;
+	UPROPERTY(EditDefaultsOnly) TSoftObjectPtr<UMaterialInstance> OverlayMaterial;
 	bool bOverlayMatSet;
 	UPROPERTY(EditDefaultsOnly) FName ActorInteractionTag;
 	UPROPERTY(BlueprintReadOnly) AActor* OverlapedActor;
 	FTimerHandle CanInteractHandle;
 public:	
 	ABaseInteractive();
-
+	virtual void SetMesh(UStaticMesh* NewMesh) { MeshComponent->SetStaticMesh(NewMesh); }
 protected:
 	virtual void BeginPlay() override;
 
@@ -52,4 +53,6 @@ protected:
 	virtual void StopInteraction_Implementation() override {}
 
 	UFUNCTION(BlueprintCallable, BlueprintPure) bool CanInteract();
+
+	void SetOverlayMaterialVisibility();
 };

@@ -22,6 +22,6 @@ void AInventoryItem::StartInteraction_Implementation()
 	APlayerCharacter* PlayerRef = Cast<APlayerCharacter>(OverlapedActor);
 	if (!PlayerRef) return;
 	bool bSuccess = PlayerRef->GetInventory()->AddItem(InventorySlot);
-	GEngine->AddOnScreenDebugMessage(INDEX_NONE, 3.f, FColor::Red, *FString::Printf(TEXT("success %i"), CanInteract()));
+	if (bSuccess) UGameplayStatics::PlaySound2D(GetWorld(), PickUpSound);
 	if (InventorySlot.Amount == 0) Destroy();
 }

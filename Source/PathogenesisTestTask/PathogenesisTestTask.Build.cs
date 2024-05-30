@@ -15,6 +15,7 @@ public class PathogenesisTestTask : ModuleRules
             "InputCore",
             "EnhancedInput",
             "UMG",
+            "AnimGraphRuntime",
         });
 
         PrivateDependencyModuleNames.AddRange(new string[] { });

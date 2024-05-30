@@ -28,26 +28,26 @@ bool UWEquipmentSlot::NativeOnDrop(const FGeometry& InGeometry, const FDragDropE
 	UDDInventory* DDInventory = Cast<UDDInventory>(InOperation);
 	if (!DDInventory) return false;
 	if (DDInventory->InventoryIndex == InventoryIndex) return false;
-
-	FInventorySlot slot;
-	InventoryRef->GetItemInfoAtIndex(DDInventory->InventoryIndex, slot);
-	if (!slot.ItemInfo.bCanUse || (int32)slot.ItemInfo.WeaponInfo.Priority == 0) return false;
-
-	EWeaponPriority WeaponPriority = slot.ItemInfo.WeaponInfo.Priority;
-	UE_LOG(LogTemp, Log, TEXT("'%i' != '%i'"), EquipmentIndex + 1, (int32)WeaponPriority);
+	
+	FInventorySlot InvSlot;
+	if (!InventoryRef->GetItemInfoAtIndex(DDInventory->InventoryIndex, InvSlot)) return false;
+	if (!InvSlot.ItemInfo.bCanUse || (int32)InvSlot.ItemInfo.WeaponInfo.Priority == 0) return false;
+	EWeaponPriority WeaponPriority = InvSlot.ItemInfo.WeaponInfo.Priority;
 	if (EquipmentIndex + 1 != (int32)WeaponPriority) return false;
 
-	UpdateSlot(DDInventory->InventoryIndex);
 	EquipmentComponentRef->AddSlotAtIndex(EquipmentIndex, DDInventory->InventoryIndex);
 
 	return true;
 }
 
-void UWEquipmentSlot::UpdateSlot(int32 Index)
+void UWEquipmentSlot::UpdateSlot(int32 EquipIndex, int32 InvIndex)
 {
 	if (!InventoryRef || !EquipmentComponentRef) return;
-	InputText->SetText(FText::AsNumber(EquipmentIndex));
-	InventoryIndex = Index;
+	if (EquipIndex != EquipmentIndex) return;
+	InputText->SetText(FText::AsNumber(EquipmentIndex + 1));
+	//EquipmentIndex = EquipIndex;
+	InventoryIndex = InvIndex;
+
 	FInventorySlot InvSlot;
 	bool bSlotEmpty = !InventoryRef->GetItemInfoAtIndex(InventoryIndex, InvSlot);
 	if (!bSlotEmpty) TextAmount->SetText(FText::AsNumber(InvSlot.Amount));

@@ -31,7 +31,7 @@ bool UEquipmentComponent::RemoveSlotAtIndex(int32 Index)
 {
 	if (!Slots.IsValidIndex(Index)) return false;
 	Slots[Index] = -1;
-
+	OnSlotUpdate.Broadcast(Index, -1);
 	return true;
 }
 
@@ -48,7 +48,6 @@ bool UEquipmentComponent::SwapSlots(int32 IndexA, int32 IndexB)
 
 	return true;
 }
-
 
 void UEquipmentComponent::BeginPlay()
 {

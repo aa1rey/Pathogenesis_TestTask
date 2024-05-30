@@ -1,35 +1,47 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 
+// Components
 #include "Characters/PlayerCharacter.h"
-#include "Engine/LocalPlayer.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "Inventory/InventoryComponent.h"
-#include "Interaction/InteractionInterface.h"
-#include "Inventory/UseInterface.h"
+#include "Characters/EquipmentComponent.h"
+#include "Characters/HealthComponent.h"
+
+// Weapon
 #include "Weapon/AttackInterface.h"
 #include "Weapon/ReloadInterface.h"
-#include "Characters/EquipmentComponent.h"
 #include "Weapon/Barrel.h"
 
+// Input
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "InputActionValue.h"
+
+// Service
+#include "Inventory/InventoryItem.h"
+#include "Interaction/InteractionInterface.h"
+#include "Inventory/UseInterface.h"
+#include "Kismet/GameplayStatics.h"
+#include "SaveGameInstance.h"
 
 APlayerCharacter::APlayerCharacter()
 {
 	PrimaryActorTick.bCanEverTick = false;
 	
 	Tags.Add("Interact");
+	Tags.Add("AITargetEnemy");
 
 	bUseControllerRotationPitch = false;
 	bUseControllerRotationYaw = false;
 	bUseControllerRotationRoll = false;
-
+	bOrientToCursor = false;
+	bRotateCameraKeyDown = false;
 	EquipmentSlotsAmount = 2;
+	bGamePaused = false;
 
 	GetCharacterMovement()->bOrientRotationToMovement = true;	
 	GetCharacterMovement()->RotationRate = FRotator(0.0f, 500.0f, 0.0f);
@@ -47,12 +59,14 @@ APlayerCharacter::APlayerCharacter()
 	CameraComponent->SetupAttachment(SpringArmComponent);
 	CameraComponent->bUsePawnControlRotation = false;
 
-	InventoryComponent = CreateDefaultSubobject<UInventoryComponent>("Inventory");
+	InventoryComponent = CreateDefaultSubobject<UInventoryComponent>("OpenInventory");
 	InventoryComponent->SlotsAmount = 15;
 	InventoryComponent->SlotsPerRow = 5;
 
 	EquipmentComponent = CreateDefaultSubobject<UEquipmentComponent>("Equipment");
 	EquipmentComponent->MaxAmount = EquipmentSlotsAmount;
+
+	HealthComponent = CreateDefaultSubobject<UHealthComponent>("Health Component");
 
 }
 
@@ -69,6 +83,9 @@ void APlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
 		// Moving
 		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &APlayerCharacter::Move);
 
+		// Rotate Camera
+		EnhancedInputComponent->BindAction<APlayerCharacter, bool>(RotateCameraAction, ETriggerEvent::Ongoing, this, &APlayerCharacter::RotateCamera, true);
+		EnhancedInputComponent->BindAction<APlayerCharacter, bool>(RotateCameraAction, ETriggerEvent::Completed, this, &APlayerCharacter::RotateCamera, false);
 		// Looking
 		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &APlayerCharacter::Look);
 
@@ -80,7 +97,7 @@ void APlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
 		EnhancedInputComponent->BindAction(InteractAction, ETriggerEvent::Completed, this, &APlayerCharacter::HoldInteract);
 
 		// Open Inventory
-		EnhancedInputComponent->BindAction(InventoryAction, ETriggerEvent::Completed, this, &APlayerCharacter::Inventory);
+		EnhancedInputComponent->BindAction(InventoryAction, ETriggerEvent::Completed, this, &APlayerCharacter::OpenInventory);
 
 		// Attack
 		EnhancedInputComponent->BindAction(AttackAction, ETriggerEvent::Started, this, &APlayerCharacter::BeginAttack);
@@ -92,6 +109,12 @@ void APlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
 
 		// Reload Weapon
 		EnhancedInputComponent->BindAction(ReloadWeaponAction, ETriggerEvent::Completed, this, &APlayerCharacter::ReloadWeapon);
+
+		// Heal
+		EnhancedInputComponent->BindAction(HealAction, ETriggerEvent::Triggered, this, &APlayerCharacter::Heal);
+
+		// Pause
+	/*	FEnhancedInputActionEventBinding& toggle =*/ EnhancedInputComponent->BindAction(PauseAction, ETriggerEvent::Triggered, this, &APlayerCharacter::Pause);
 	}
 	else UE_LOG(LogTemp, Error, TEXT("Error! Can not get Enhanced Input Component in Player Character"));
 	
@@ -100,6 +123,9 @@ void APlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
 void APlayerCharacter::BeginPlay()
 {
 	Super::BeginPlay();
+
+	if (HealthComponent) HealthComponent->OnDeath.AddDynamic(this, &APlayerCharacter::OnDeath);
+	else UE_LOG(LogTemp, Error, TEXT("Health Component is not valid for object: '%s'"), *GetNameSafe(this));
 
 	if (APlayerController* PlayerController = Cast<APlayerController>(GetController()))
 	{
@@ -114,8 +140,10 @@ void APlayerCharacter::BeginPlay()
 	if (InventoryComponent)
 	{
 		InventoryComponent->OnItemUse.AddDynamic(this, &APlayerCharacter::OnItemUse);
+		if (EquipmentComponent)
+			InventoryComponent->OnSlotBecomeEmpty.AddDynamic(EquipmentComponent, &UEquipmentComponent::OnInventorySlotBecomeEmpty);
 	}
-	else UE_LOG(LogInventory, Error, TEXT("Could not create InventoryComponent for object: '%s'"), *GetNameSafe(this));
+	else UE_LOG(LogTemp, Error, TEXT("Could not create InventoryComponent for object: '%s'"), *GetNameSafe(this));
 }
 
 void APlayerCharacter::OnItemUse(FInventorySlot Slot)
@@ -123,7 +151,8 @@ void APlayerCharacter::OnItemUse(FInventorySlot Slot)
 	FActorSpawnParameters SpawnParams;
 	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
-	if (IUseInterface* UsingItem = GetWorld()->SpawnActor<IUseInterface>(Slot.ItemClass, GetMesh()->GetComponentTransform(), SpawnParams))
+	//if (IUseInterface* UsingItem = GetWorld()->SpawnActor<IUseInterface>(Slot.ItemClass, GetMesh()->GetComponentTransform(), SpawnParams))
+	if (AActor* UsingItem = GetWorld()->SpawnActor<AActor>(Slot.ItemClass, GetMesh()->GetComponentTransform(), SpawnParams))
 	{
 		if (IAttackInterface* local_WeaponRef = Cast<IAttackInterface>(UsingItem))
 		{
@@ -139,10 +168,16 @@ void APlayerCharacter::OnItemUse(FInventorySlot Slot)
 					curr_firearms_weapon->GetBarrelComponent()->OnCurrentAmmoUpdate.RemoveDynamic(this, &APlayerCharacter::OnWeaponCurrentAmountUpdateEvent);
 				
 				// Update old inventory slot weapon info
-				FInventorySlot slot; int32 found_index;
+				int32 found_index;
+				FInventorySlot slot; 
 				if (InventoryComponent->SearchItemByClass(WeaponRef->_getUObject()->GetClass(), slot, found_index))
 				{
-					slot.ItemInfo.WeaponInfo = WeaponRef->GetWeaponInfo();
+					FWeaponInfo NewWepInfo = WeaponRef->GetWeaponInfo();
+					slot.ItemInfo.WeaponInfo.AmmoClass = NewWepInfo.AmmoClass;
+					slot.ItemInfo.WeaponInfo.MaxAmmo = NewWepInfo.MaxAmmo;
+					slot.ItemInfo.WeaponInfo.CurrentAmmo = NewWepInfo.CurrentAmmo;
+					slot.ItemInfo.WeaponInfo.Type = NewWepInfo.Type;
+					slot.ItemInfo.WeaponInfo.Priority = NewWepInfo.Priority;
 					InventoryComponent->UpdateSlotAtIndex(found_index, slot);
 				}
 
@@ -153,14 +188,30 @@ void APlayerCharacter::OnItemUse(FInventorySlot Slot)
 			WeaponRef = local_WeaponRef;
 			OnWeaponSwitch.Broadcast(Slot.ItemInfo.WeaponInfo.Type);
 		}
-		UsingItem->Use(this, Slot);
+		//UsingItem->Use(this, Slot);
+		IUseInterface::Execute_Use(UsingItem, this, Slot);
 	}
 }
 
 void APlayerCharacter::OnWeaponCurrentAmountUpdateEvent(int32 Amount)
 {
-	FWeaponInfo WeaponInfo = Cast<IAttackInterface>(WeaponRef)->GetWeaponInfo();
+	FWeaponInfo WeaponInfo = WeaponRef->GetWeaponInfo();
 	OnWeaponInfoUpdate.Broadcast(WeaponInfo);
+}
+
+void APlayerCharacter::OnDeath_Implementation()
+{
+	Destroy();
+}
+
+void APlayerCharacter::AddHealth_Implementation(float Value)
+{
+	if (HealthComponent) HealthComponent->AddHealth(Value);
+}
+
+void APlayerCharacter::SubHealth_Implementation(float Value)
+{
+	if (HealthComponent) HealthComponent->SubHealth(Value);
 }
 
 void APlayerCharacter::Move(const FInputActionValue& Value)
@@ -184,7 +235,7 @@ void APlayerCharacter::Move(const FInputActionValue& Value)
 
 void APlayerCharacter::Look(const FInputActionValue& Value)
 {
-	if (!Controller) return;
+	if (!Controller || bOrientToCursor || !bRotateCameraKeyDown) return;
 
 	FVector2D LookAxisVector = Value.Get<FVector2D>();
 	if (LookAxisVector.X != 0 && LookAxisVector.Y != 0)
@@ -218,6 +269,49 @@ bool APlayerCharacter::CanInteract()
 	return false;
 }
 
+void APlayerCharacter::OnItemThrow(int32 ItemIndex)
+{
+	FInventorySlot slot;
+	if (!InventoryComponent->GetItemInfoAtIndex(ItemIndex, slot)) return;
+	InventoryComponent->RemoveItemAtIndex(ItemIndex);
+	// If the item they are trying to remove is the player's equipped weapon, destroy it
+	if (WeaponRef)
+	{
+		AActor* weapon = Cast<AActor>(WeaponRef);
+		if (slot.ItemClass == weapon->GetClass())
+		{
+			weapon->Destroy();
+			OnWeaponSwitch.Broadcast(EWeaponType::EWT_None);
+		}
+	}
+
+	// Calculate location leaning to the floor
+	FHitResult HitResult;
+	FVector StartVec = GetActorLocation() + FVector(0.f, 0.f, 150.f) + GetActorForwardVector() * 200.f;
+	bool bWasHit = UKismetSystemLibrary::LineTraceSingle(
+		GetWorld(),
+		StartVec,
+		StartVec + FVector(0.f, 0.f, -1000.f),
+		UEngineTypes::ConvertToTraceType(ECC_Visibility),
+		true,
+		TArray<AActor*>(),
+		EDrawDebugTrace::ForDuration,
+		HitResult,
+		true);
+
+	// Spawn thrown item in world
+	FTransform SpawnTransform(FRotator(), bWasHit ? HitResult.Location : StartVec);
+	FActorSpawnParameters SpawnParams;
+	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+
+	if (AInventoryItem* Item = GetWorld()->SpawnActor<AInventoryItem>(AInventoryItem::StaticClass(), SpawnTransform, SpawnParams))
+	{
+		Item->InventorySlot = slot;
+		AActor* target = Cast<AActor>(slot.ItemClass->GetDefaultObject());
+		if (target) Item->SetMesh(target->GetComponentByClass<UStaticMeshComponent>()->GetStaticMesh());
+	}
+}
+
 void APlayerCharacter::Interact()
 {
 	if (CanInteract()) IInteractionInterface::Execute_StartInteraction(InteractedObject);
@@ -228,7 +322,7 @@ void APlayerCharacter::HoldInteract()
 	if (Controller && CanInteract()) IInteractionInterface::Execute_HoldInteraction(InteractedObject);
 }
 
-void APlayerCharacter::Inventory()
+void APlayerCharacter::OpenInventory()
 {
 	InventoryComponent->ToggleInventoryVisibility();
 }
@@ -246,17 +340,17 @@ void APlayerCharacter::ReleaseAttack()
 void APlayerCharacter::SelectWeapon(int32 Index)
 {
 	// Get inventory index from equipment component
-	FInventorySlot slot;
 	int32 found_index = EquipmentComponent->GetContentAtIndex(Index);
 
 	// Get inventory slot info by found index
+	FInventorySlot slot;
 	if (InventoryComponent->GetItemInfoAtIndex(found_index, slot))
 	{
 		FString NewName = slot.ItemClass->GetName();
 		if (WeaponRef)
 		{
 			// Get inventory slot of currently equiped weapon
-			FInventorySlot slot_curr; int32 flound_index_curr;
+			FInventorySlot slot_curr;  int32 flound_index_curr;
 			if (InventoryComponent->SearchItemByClass(WeaponRef->_getUObject()->GetClass(), slot_curr, flound_index_curr))
 			{
 				OnWeaponSelect.Broadcast((int32)slot_curr.ItemInfo.WeaponInfo.Priority - 1, false);
@@ -271,18 +365,102 @@ void APlayerCharacter::SelectWeapon(int32 Index)
 					Cast<AActor>(WeaponRef)->Destroy();
 					WeaponRef = nullptr;
 					OnWeaponSwitch.Broadcast(EWeaponType::EWT_None);
+					bOrientToCursor = false;
+					OnOrientToMousePosition.Broadcast(bOrientToCursor);
 					return;
 				}
 			}
 		}
 		OnWeaponSelect.Broadcast(Index, true);
+		bOrientToCursor = true;
+		OnOrientToMousePosition.Broadcast(bOrientToCursor);
 		InventoryComponent->UseItemAtIndex(found_index);
 	}
 }
 
 void APlayerCharacter::ReloadWeapon()
 {
-	if (WeaponRef)
-		if (WeaponRef->_getUObject()->GetClass()->ImplementsInterface(UReloadInterface::StaticClass()))
-			Cast<IReloadInterface>(WeaponRef)->Reload();
+	if (!WeaponRef) return;
+
+	if (WeaponRef->_getUObject()->GetClass()->ImplementsInterface(UReloadInterface::StaticClass()))
+	{
+		// Try to find specified class of ammo, if not found - return
+		FWeaponInfo WeaponInfo = WeaponRef->GetWeaponInfo();
+		int32 count = InventoryComponent->GetTotalItemAmount(WeaponInfo.AmmoClass);
+		if (count == 0) return;
+
+		int32 RequiredAmount = WeaponInfo.MaxAmmo - WeaponInfo.CurrentAmmo;
+		int32 found_index;
+		int32 rest = RequiredAmount;
+
+		for (int32 i = 0; i < count; i++)
+		{
+			// Get Inventory Slot of ammo item and its index
+			FInventorySlot slot;
+			if (InventoryComponent->SearchItemByClass(WeaponInfo.AmmoClass, slot, found_index))
+			{
+				// Remove from inventory specifed ammo item amount
+				InventoryComponent->RemoveItemAtIndex(found_index, slot.Amount < rest ? slot.Amount : rest);
+				if (slot.Amount < rest) rest -= slot.Amount;
+				else { rest = 0; break; }
+			}
+		}
+		Cast<IReloadInterface>(WeaponRef)->Reload(RequiredAmount - rest);
+	}
+}
+
+void APlayerCharacter::Heal()
+{
+	if (HealItemClasses.Num() == 0)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Heal Item Classes is empty in object: '%s'! Character won't be able to heal by Input Heal"), *GetNameSafe(this));
+		return;
+	}
+
+	for (const UClass* HealClass : HealItemClasses)
+	{
+		FInventorySlot slot; int32 found_index;
+		if (InventoryComponent->SearchItemByClass(HealClass, slot, found_index))
+		{
+			InventoryComponent->UseItemAtIndex(found_index);
+			return;
+		}
+	}
+}
+
+bool APlayerCharacter::Save_Implementation()
+{
+	if (USaveGameInstance* GameInstance = GetGameInstance<USaveGameInstance>())
+	{
+		GameInstance->SaveHealth(GetName(), HealthComponent->GetCurrentHealth());
+		GameInstance->SaveLocation(GetName(), GetActorLocation());
+		return true;
+	}
+	else return false;
+}
+
+bool APlayerCharacter::Load_Implementation()
+{
+	if (USaveGameInstance* GameInstance = GetGameInstance<USaveGameInstance>())
+	{
+		float LoadedHealth;
+		bool SuccessHealth = GameInstance->LoadHealth(GetName(), LoadedHealth);
+		if (SuccessHealth) HealthComponent->SetCurrentHealth(LoadedHealth);
+
+		FVector LoadedLocation;
+		bool SuccessLocation = GameInstance->LoadLocation(GetName(), LoadedLocation);
+		if (SuccessLocation) SetActorLocation(LoadedLocation);
+		return SuccessLocation && SuccessHealth;
+	}
+	else return false;
+}
+
+void APlayerCharacter::TogglePause()
+{
+	bGamePaused = !bGamePaused;
+	
+	if (bGamePaused)
+		InventoryComponent->OnInventoryVisibilityUpdate.Broadcast(false);
+
+	OnPause.Broadcast(bGamePaused);
 }

@@ -7,7 +7,7 @@
 #include "ItemInfo.h"
 #include "InventoryItem.generated.h"
 
-UCLASS(Abstract)
+UCLASS()
 class PATHOGENESISTESTTASK_API AInventoryItem : public ABaseInteractive
 {
 	GENERATED_BODY()
@@ -16,6 +16,7 @@ public:
 	UPROPERTY(EditDefaultsOnly) FInventorySlot InventorySlot;
 protected:
 	//UPROPERTY(BlueprintReadWrite) class APlayerCharacter* PlayerRef;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Sounds") USoundBase* PickUpSound;
 public:	
 	AInventoryItem();
 protected:

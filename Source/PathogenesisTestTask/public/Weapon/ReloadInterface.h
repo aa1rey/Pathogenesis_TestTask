@@ -22,6 +22,6 @@ class PATHOGENESISTESTTASK_API IReloadInterface
 
 	// Add interface functions to this class. This is the class that will be inherited to implement this interface.
 public:
-	virtual void Reload() = 0;
+	virtual void Reload(int32 ReloadAmmoAmount) = 0;
 	virtual class UBarrel* GetBarrelComponent() const = 0;
 };

@@ -22,8 +22,7 @@ void USaveGameInstance::StartGameInstance()
 
 void USaveGameInstance::ClearAllSaves(FString SlotName)
 {
-    USaveGameObject* SaveData = Cast<USaveGameObject>(UGameplayStatics::LoadGameFromSlot(SlotName, 0));
-    if (!SaveData && !UGameplayStatics::DoesSaveGameExist(SlotName, 0)) return;
+    //if (!UGameplayStatics::DoesSaveGameExist(SlotName, 0)) return;
 
     UGameplayStatics::DeleteGameInSlot(SlotName, 0);
 }
@@ -43,7 +42,7 @@ void USaveGameInstance::SaveLocation(const FString& CharacterName, FVector Locat
 
 bool USaveGameInstance::LoadLocation(const FString& CharacterName, FVector& Location)
 {
-    if (!UGameplayStatics::DoesSaveGameExist("Slot1", 0)) CreateSaveFile<USaveGameObject>("Slot1");
+    if (!UGameplayStatics::DoesSaveGameExist("Slot1", 0)) return false;
     USaveGameObject* SaveObject = GetSaveGameObject<USaveGameObject>("Slot1");
 
     // If TMap does not contain given CharacterName key - return false, otherwise value is set into Location 
@@ -69,7 +68,7 @@ void USaveGameInstance::SaveHealth(const FString& CharacterName, float Health)
 
 bool USaveGameInstance::LoadHealth(const FString& CharacterName, float& Health)
 {
-    if (!UGameplayStatics::DoesSaveGameExist("Slot1", 0)) CreateSaveFile<USaveGameObject>("Slot1");
+    if (!UGameplayStatics::DoesSaveGameExist("Slot1", 0)) return false;
     USaveGameObject* SaveObject = GetSaveGameObject<USaveGameObject>("Slot1");
 
     // If TMap does not contain given CharacterName key - return false, otherwise value is set into Health 
